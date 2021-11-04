@@ -302,4 +302,35 @@ public class InternalAppenderWriteBytesTest extends ChronicleQueueTestBase {
             return dump.contains(" EOF") && dump.contains("--- !!not-ready-meta-data");
         }
     }
+
+    @Test
+    public void testWriteNewIndexedItemAfterRollCycle() {
+        expectException("to the classpath");
+
+        SetTimeProvider stp = new SetTimeProvider(0);
+        File tempDir = tempDir("testIndexAfterRollCycle");
+        System.out.println(tempDir);
+        try (SingleChronicleQueue q = binary(tempDir)
+                .rollCycle(TEST_DAILY)
+                .timeProvider(stp).build();
+
+             ExcerptAppender appender = q.acquireAppender()) {
+            String text = "gidday";
+            appender.writeText(text);
+
+            final long l = appender.lastIndexAppended();
+            final RollCycle rollCycle = q.rollCycle();
+            final int currentCycle = rollCycle.toCycle(l);
+
+//            stp.advanceMillis(TimeUnit.DAYS.toMillis(1) + 1);
+//            @NotNull ExcerptTailer t = q.createTailer();
+//            assertEquals(text, t.readText());
+//            for (int i=0; i<100; i++)
+//                assertNull(t.readText());
+
+            // now write the first (0th) message in the next roll cycle. Because we are using TEST_DAILY this will be indexed
+            final long index = rollCycle.toIndex(currentCycle + 1, 0);
+            ((InternalAppender) appender).writeBytes(index, Bytes.from("text"));
+        }
+    }
 }
